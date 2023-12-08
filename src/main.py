@@ -1,4 +1,4 @@
-import threading
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -27,8 +27,8 @@ ws_server = SimpleWebSocketServer(tm)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    threading.Thread(target=tm.main_loop).start()
-    threading.Thread(target=ws_server.main).start()
+    asyncio.create_task(tm.main_loop())
+    asyncio.create_task(ws_server.main())
     yield
     tm.shutdown()
     ws_server.shutdown()

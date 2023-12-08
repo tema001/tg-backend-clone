@@ -1,5 +1,6 @@
 from fastapi import Depends
 from pymongo.database import Collection
+from starlette.concurrency import run_in_threadpool
 
 from conversations.domain.entity import ConversationEntity
 from db import get_conversations
@@ -12,22 +13,22 @@ class ConversationRepository:
     def __init__(self, db: Collection = Depends(get_conversations)):
         self._db = db
 
-    def add(self, conversation: ConversationEntity):
-        self._db.insert_one(conversation.__dict__)
+    async def add(self, conversation: ConversationEntity):
+        await run_in_threadpool(self._db.insert_one, conversation.__dict__)
 
-    def get_by_id(self, _id: ObjectId) -> ConversationEntity | None:
-        resp = self._db.find_one({'_id': _id})
+    async def get_by_id(self, _id: ObjectId) -> ConversationEntity | None:
+        resp = await run_in_threadpool(self._db.find_one, {'_id': _id})
         if resp:
             return ConversationEntity(**resp)
 
-    def find_private_by_ids(self,
+    async def find_private_by_ids(self,
                             _id_1: ObjectId,
                             _id_2: ObjectId) -> ConversationEntity | None:
         _filter = {
             'type': 'private',
             'participants': {'$size': 2, '$all': [_id_1, _id_2]}
         }
-        resp = self._db.find_one(_filter)
+        resp = await run_in_threadpool(self._db.find_one, _filter)
         if resp:
             return ConversationEntity(**resp)
 

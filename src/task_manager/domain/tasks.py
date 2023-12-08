@@ -2,7 +2,9 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Callable, Iterable, Any
+from typing import Dict, Callable, Iterable, Any, Awaitable
+
+import ujson
 
 from conversations.domain.entity import ConversationEntity
 from conversations.repository import ConversationRepository
@@ -22,7 +24,7 @@ class TaskResult:
 class Task(ABC):
 
     @abstractmethod
-    def handle(self, *args) -> TaskResult:
+    async def handle(self, *args) -> TaskResult:
         raise NotImplementedError
 
 
@@ -32,12 +34,12 @@ class TaskFactory:
     def create_task(cls, sender_id: idType, data: Any) -> Task:
         new_task = None
         if isinstance(data, str):
-            _data = json.loads(data)
+            _data = ujson.loads(data)
             data_type = _data.get('type')
             if data_type == 'Text':
-                new_task = SendMsg.create(sender_id, data)
+                new_task = SendMsg.create(sender_id, _data)
             elif data_type == 'ReadMsg':
-                new_task = ReadMsgEvent.create(sender_id, data)
+                new_task = ReadMsgEvent.create(sender_id, _data)
 
         elif isinstance(data, BinaryFile):
             new_task = DownloadFile.create(sender_id, data)
@@ -97,11 +99,11 @@ class SendMsg(Task):
         return cls(sender_id, idType(data['conversation_id']), data['payload'])
 
     @inject
-    def handle(self,
-               msg_repo: MessageRepository,
-               get_conv: Callable[[idType], ConversationEntity]
-               ) -> TaskResult:
-        conv = get_conv(self.conversation_id)
+    async def handle(self,
+                       msg_repo: MessageRepository,
+                       get_conv: Callable[[idType], Awaitable[ConversationEntity]]
+                       ) -> TaskResult:
+        conv = await get_conv(self.conversation_id)
 
         if conv is None:
             msg = {'type': 'Error', 'description': 'No such conversation'}
@@ -116,7 +118,7 @@ class SendMsg(Task):
             'created_at': self.created_at,
             'events': []
         }
-        msg_id = msg_repo.add(msg)
+        msg_id = await msg_repo.add(msg)
         msg['_id'] = msg_id
 
         return TaskResult(conv.participants, msg)

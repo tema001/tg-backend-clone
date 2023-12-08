@@ -1,8 +1,7 @@
 import json
+import asyncio
 import time
-from typing import Callable, Iterable, Dict, List
-
-from queue import Queue
+from typing import Callable, Iterable, Dict, Awaitable
 
 from conversations.domain.entity import ConversationEntity
 from conversations.repository import ConversationRepository
@@ -21,7 +20,7 @@ class TaskManager:
 
     _connected_users: dict[idType, Callable] = {}
 
-    _task_queue: Queue = Queue()
+    _task_queue: asyncio.Queue = asyncio.Queue()
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
@@ -36,52 +35,66 @@ class TaskManager:
         self._running = True
         self.conv_repo = conv_repo
 
+        self.get_task = []
+
         di_cache[ConversationRepository] = self.conv_repo
         di_cache[MessageRepository] = messages_repo
-        di_cache[Callable[[idType], ConversationEntity]] = self._get_conversation
+        di_cache[Callable[[idType], Awaitable[ConversationEntity]]] = self._get_conversation
         di_cache[FileStorage] = file_storage
 
-    def main_loop(self):
+    async def main_loop(self):
+        count = 0
         while self._running:
-            for _ in range(self._task_queue.qsize()):
-                self._handle_message(self._task_queue.get_nowait())
-            time.sleep(0.1)
+            try:
+                start = time.time()
+                task = await self._task_queue.get()
+                await self._handle_message(task)
+                finish = time.time()
+                self.get_task.append(finish - start)
 
-    def _handle_message(self, task: Task):
-        result = task.handle()
+                count += 1
+                if count > 500:
+                    await asyncio.sleep(0.02)
+                    count = 0
+            except asyncio.QueueEmpty:
+                await asyncio.sleep(0.1)
 
-        self._messages_dispatch(result.receiver, result.payload)
+    async def _handle_message(self, task: Task):
+        result = await task.handle()
+        self._task_queue.task_done()
 
-    def _messages_dispatch(self, receiver: idType | Iterable, msg: Dict):
-        def _send(_id):
+        await self._messages_dispatch(result.receiver, result.payload)
+
+    async def _messages_dispatch(self, receiver: idType | Iterable, msg: Dict):
+        async def _send(_id):
             receiver_func = self._connected_users.get(_id)
             if receiver_func:
-                receiver_func(json.dumps(msg, default=str))
+                await receiver_func(json.dumps(msg, default=str))
 
         if isinstance(receiver, Iterable):
             for x in receiver:
-                _send(x)
+                await _send(x)
         else:
-            _send(receiver)
+            await _send(receiver)
 
-    def _get_conversation(self, conv_id: idType) -> ConversationEntity | None:
+    async def _get_conversation(self, conv_id: idType) -> ConversationEntity | None:
         conversation = self._chat_cache.get(conv_id)
         if not conversation:
-            conversation = self.conv_repo.get_by_id(conv_id)
+            conversation = await self.conv_repo.get_by_id(conv_id)
             if conversation:
                 self._chat_cache[conv_id] = conversation
 
         return conversation
 
-    def add_task(self, new_task: Task):
-        self._task_queue.put(new_task)
+    async def add_task(self, new_task: Task):
+        await self._task_queue.put(new_task)
 
     def new_connection(self, client_id: idType, callback: Callable):
         print(f'New connection: {client_id}')
 
         self._connected_users[client_id] = callback
 
-        self._task_queue.put(LoadAllMsgs(client_id))
+        # self._task_queue.put(LoadAllMsgs(client_id))
 
     def close_connection(self, client_id: idType):
         print(f'Closing connection: {client_id}')
@@ -90,4 +103,3 @@ class TaskManager:
 
     def shutdown(self):
         self._running = False
-

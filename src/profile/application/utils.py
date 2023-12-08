@@ -18,7 +18,7 @@ def generate_jwt_token(input_password: str,
         return jwt.encode(data, SECRET_KEY, ALGORITHM)
 
 
-def decode_token(token: str) -> dict:
+async def decode_token(token: str) -> dict:
     return jwt.decode(token, SECRET_KEY, ALGORITHM)
 
 

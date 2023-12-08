@@ -28,9 +28,9 @@ class ProfileService:
         return token
 
     @staticmethod
-    def get_user_from_token(token: str = Depends(oauth2_scheme)):
+    async def get_user_from_token(token: str = Depends(oauth2_scheme)):
         try:
-            return decode_token(token)
+            return await decode_token(token)
         except ExpiredSignatureError:
             raise DecodeTokenError('Authorization token has expired')
         except JWTError:

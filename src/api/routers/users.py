@@ -23,20 +23,20 @@ def register_new_user(profile_repo: ProfileRepository = Depends(),
 
 
 @router.post('/contact/{contact_id}/chat')
-def new_conversation(contact_id: str,
-                     user: dict = Depends(ProfileService.get_user_from_token),
-                     conv_repo: ConversationRepository = Depends()):
+async def new_conversation(contact_id: str,
+                           user: dict = Depends(ProfileService.get_user_from_token),
+                           conv_repo: ConversationRepository = Depends()):
     if user['id'] == contact_id:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             detail='The User ID and contact ID are the same')
 
     myself, contact = idType(user['id']), idType(contact_id)
-    conv = conv_repo.find_private_by_ids(myself, contact)
+    conv = await conv_repo.find_private_by_ids(myself, contact)
     if conv:
         return str(conv._id)
 
     conv = ConversationEntity.create('private', (myself, contact))
-    conv_repo.add(conv)
+    await conv_repo.add(conv)
 
     return str(conv._id)
 
