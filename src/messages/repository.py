@@ -20,8 +20,11 @@ class MessageRepository:
         msg_id = await run_in_threadpool(self._db.insert_one, message)
         return msg_id.inserted_id
 
-    def get_by_conversation_id(self, _id: ObjectId):
-        return self._db.find({'conversation_id': _id}).limit(40).sort('created_at', DESCENDING)
+    async def get_by_conversation_id(self, _id: ObjectId):
+        def wrapper():
+            return self._db.find({'conversation_id': _id}).limit(40).sort('created_at', DESCENDING)
+
+        return await run_in_threadpool(wrapper)
 
     def set_seen_status(self, _id: ObjectId, event: dict) -> bool:
         res = self._db.update_one(

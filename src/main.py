@@ -7,9 +7,10 @@ from uvicorn import run
 from api.routers.users import router as users_router
 from api.routers.files import router as router_router
 from api.routers.auth import router as auth_router
+from api.routers.ws import router as ws_router
+
 from shared.utils import DummyFileStorage
 
-from ws_server import SimpleWebSocketServer
 from task_manager.domain.manager import TaskManager
 
 from db import get_conversations, get_messages
@@ -22,22 +23,19 @@ tm = TaskManager(ConversationRepository(get_conversations()),
                  MessageRepository(get_messages()),
                  DummyFileStorage())
 
-ws_server = SimpleWebSocketServer(tm)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     asyncio.create_task(tm.main_loop())
-    asyncio.create_task(ws_server.main())
     yield
     tm.shutdown()
-    ws_server.shutdown()
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(users_router)
 app.include_router(router_router)
 app.include_router(auth_router)
+app.include_router(ws_router)
 
 origins = ["http://localhost:3000"]
 
@@ -50,4 +48,4 @@ app.add_middleware(
 
 
 if __name__ == "__main__":
-    run(app, host="0.0.0.0", port=8000)
+    run(app, host="0.0.0.0", port=8000, ws='websockets', ws_ping_interval=100.0)

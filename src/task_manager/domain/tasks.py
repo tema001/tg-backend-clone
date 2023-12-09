@@ -100,9 +100,9 @@ class SendMsg(Task):
 
     @inject
     async def handle(self,
-                       msg_repo: MessageRepository,
-                       get_conv: Callable[[idType], Awaitable[ConversationEntity]]
-                       ) -> TaskResult:
+                     msg_repo: MessageRepository,
+                     get_conv: Callable[[idType], Awaitable[ConversationEntity]]
+                     ) -> TaskResult:
         conv = await get_conv(self.conversation_id)
 
         if conv is None:
@@ -136,12 +136,12 @@ class DownloadFile(Task):
         return cls(sender_id, idType(data.metadata['conversation_id']), data)
 
     @inject
-    def handle(self,
-               msg_repo: MessageRepository,
-               file_storage: FileStorage,
-               get_conv: Callable[[idType], ConversationEntity]
-               ) -> TaskResult:
-        conv = get_conv(self.conversation_id)
+    async def handle(self,
+                     msg_repo: MessageRepository,
+                     file_storage: FileStorage,
+                     get_conv: Callable[[idType], Awaitable[ConversationEntity]]
+                     ) -> TaskResult:
+        conv = await get_conv(self.conversation_id)
 
         if conv is None:
             msg = {'type': 'Error', 'description': 'No such conversation'}
@@ -161,7 +161,7 @@ class DownloadFile(Task):
             'created_at': self.created_at,
             'events': []
         }
-        msg_id = msg_repo.add(msg)
+        msg_id = await msg_repo.add(msg)
         msg['_id'] = msg_id
 
         return TaskResult(conv.participants, msg)
@@ -172,14 +172,14 @@ class LoadAllMsgs(Task):
     requester_id: idType
 
     @inject
-    def handle(self,
-               conv_repo: ConversationRepository,
-               msg_repo: MessageRepository,
-               ) -> TaskResult:
-        chats = conv_repo.find_all_by_participant_id(self.requester_id)
+    async def handle(self,
+                     conv_repo: ConversationRepository,
+                     msg_repo: MessageRepository,
+                     ) -> TaskResult:
+        chats = await conv_repo.find_all_by_participant_id(self.requester_id)
         payload = {'type': 'AllMessages'}
         for chat in chats:
-            m = list(msg_repo.get_by_conversation_id(chat['_id']))
+            m = list(await msg_repo.get_by_conversation_id(chat['_id']))
             m.reverse()
             _id = str(chat['_id'])
             payload[_id] = m

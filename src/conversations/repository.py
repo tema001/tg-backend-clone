@@ -32,8 +32,8 @@ class ConversationRepository:
         if resp:
             return ConversationEntity(**resp)
 
-    def find_all_by_participant_id(self, _id: ObjectId):
-        return self._db.find({'participants': _id}, {'_id': 1})
+    async def find_all_by_participant_id(self, _id: ObjectId):
+        return await run_in_threadpool(self._db.find, {'participants': _id}, {'_id': 1})
 
     def find_all_detailed_by_participant_id(self, _id: ObjectId):
         pipeline = [

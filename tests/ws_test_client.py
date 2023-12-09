@@ -13,12 +13,12 @@ from wsproto.events import (
 )
 
 RECEIVE_BYTES = 4096
-MESSAGE_COUNT = 200
+MESSAGE_COUNT = 100
 
 
 def wsproto_demo(username: str, profile_id: str, conv_id: str, results: list) -> None:
     host = 'localhost'
-    port = 8010
+    port = 8000
 
     # print(f"Connecting to {host}:{port}")
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -28,7 +28,7 @@ def wsproto_demo(username: str, profile_id: str, conv_id: str, results: list) ->
     ws = WSConnection(ConnectionType.CLIENT)
     # Because this is a client WebSocket, we need to initiate the connection
     # handshake by sending a Request event.
-    net_send(ws.send(Request(host=host, target=profile_id)), conn)
+    net_send(ws.send(Request(host=host, target='/ws/' + profile_id)), conn)
     net_recv(ws, conn)
     handle_events(ws)
 

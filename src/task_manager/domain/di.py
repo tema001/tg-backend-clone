@@ -16,9 +16,9 @@ def resolve_kwargs(func: Callable) -> Dict:
 
 
 def inject(func: Callable):
-    def wrapper(self):
+    async def wrapper(self):
         kwargs = resolve_kwargs(func)
-        return func(self, **kwargs)
+        return await func(self, **kwargs)
 
     return wrapper
 

@@ -29,9 +29,9 @@ class TaskManager:
         return cls._instance
 
     def __init__(self,
-                 conv_repo: ConversationRepository,
-                 messages_repo: MessageRepository,
-                 file_storage):
+                 conv_repo: ConversationRepository = None,
+                 messages_repo: MessageRepository = None,
+                 file_storage = None):
         self._running = True
         self.conv_repo = conv_repo
 
@@ -54,7 +54,7 @@ class TaskManager:
 
                 count += 1
                 if count > 500:
-                    await asyncio.sleep(0.02)
+                    await asyncio.sleep(0.01)
                     count = 0
             except asyncio.QueueEmpty:
                 await asyncio.sleep(0.1)
@@ -88,6 +88,7 @@ class TaskManager:
 
     async def add_task(self, new_task: Task):
         await self._task_queue.put(new_task)
+        await asyncio.sleep(0)
 
     def new_connection(self, client_id: idType, callback: Callable):
         print(f'New connection: {client_id}')
