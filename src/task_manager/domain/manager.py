@@ -9,7 +9,7 @@ from messages.repository import MessageRepository
 
 from shared import idType
 from shared.utils import FileStorage
-from .tasks import Task, SendMsg, LoadAllMsgs
+from .tasks import Task, LoadAllMsgs
 from .di import di_cache
 
 

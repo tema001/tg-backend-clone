@@ -1,12 +1,13 @@
 import os.path
 from abc import ABC, abstractmethod
+from io import BytesIO
 from typing import Generator
 
 
 class FileStorage(ABC):
 
     @abstractmethod
-    def save(self, *args):
+    async def save(self, *args):
         ...
 
     @abstractmethod
@@ -18,13 +19,15 @@ class DummyFileStorage(FileStorage):
     def __init__(self):
         self._storage_path = '/Users/artem/Documents/storage/'
 
-    def save(self, sub_dir: str, name: str, data):
+    async def save(self, fd: BytesIO, sub_dir: str, name: str):
+        # imitation of transfer from ws server to a file service
         sub_path = self._storage_path + sub_dir
         if not os.path.exists(sub_path):
             os.mkdir(sub_path)
 
         with open(f'{sub_path}/{name}', 'wb') as file:
-            file.write(data)
+            while batch := fd.read(1024):
+                file.write(batch)
 
     def load_stream(self, sub_dir: str, name: str) -> Generator | None:
         file_path = f'{self._storage_path}{sub_dir}/{name}'

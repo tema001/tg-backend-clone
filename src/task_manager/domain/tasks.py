@@ -9,7 +9,7 @@ import ujson
 from conversations.domain.entity import ConversationEntity
 from conversations.repository import ConversationRepository
 from messages.repository import MessageRepository
-from shared import idType, BinaryFile
+from shared import idType, BinaryFile, TempStorage
 from shared.utils import FileStorage
 
 from .di import inject
@@ -44,7 +44,8 @@ class TaskFactory:
         elif isinstance(data, BinaryFile):
             new_task = DownloadFile.create(sender_id, data)
 
-        if new_task is None: print('*** Task factory cannot define a task ***')
+        if new_task is None:
+            print('*** Task factory cannot define a task ***')
 
         return new_task
 
@@ -147,8 +148,6 @@ class DownloadFile(Task):
             msg = {'type': 'Error', 'description': 'No such conversation'}
             return TaskResult(self.sender_id, msg)
 
-        file_storage.save(str(self.conversation_id), self.payload.filename, self.payload.data)
-
         msg = {
             'sender_id': self.sender_id,
             'conversation_id': self.conversation_id,
@@ -163,6 +162,11 @@ class DownloadFile(Task):
         }
         msg_id = await msg_repo.add(msg)
         msg['_id'] = msg_id
+
+        # todo: try/except
+        path = TempStorage.full_path(self.payload.temp_dir, self.payload.filename)
+        with open(path, 'rb') as fd:
+            await file_storage.save(fd, str(self.conversation_id), self.payload.filename)
 
         return TaskResult(conv.participants, msg)
 
