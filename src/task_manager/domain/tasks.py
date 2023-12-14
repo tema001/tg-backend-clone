@@ -9,8 +9,7 @@ import ujson
 from conversations.domain.entity import ConversationEntity
 from conversations.repository import ConversationRepository
 from messages.repository import MessageRepository
-from shared import idType, BinaryFile, TempStorage
-from shared.utils import FileStorage
+from shared import idType, BinaryFile
 
 from .di import inject
 
@@ -139,7 +138,6 @@ class DownloadFile(Task):
     @inject
     async def handle(self,
                      msg_repo: MessageRepository,
-                     file_storage: FileStorage,
                      get_conv: Callable[[idType], Awaitable[ConversationEntity]]
                      ) -> TaskResult:
         conv = await get_conv(self.conversation_id)
@@ -155,18 +153,15 @@ class DownloadFile(Task):
             'status': 'Sent',
             'payload': {
                 'size': self.payload.total_size,
-                'filename': self.payload.filename
+                'filename': self.payload.filename,
+                'file_id': self.payload.file_id
             },
             'created_at': self.created_at,
             'events': []
         }
         msg_id = await msg_repo.add(msg)
         msg['_id'] = msg_id
-
-        # todo: try/except
-        path = TempStorage.full_path(self.payload.temp_dir, self.payload.filename)
-        with open(path, 'rb') as fd:
-            await file_storage.save(fd, str(self.conversation_id), self.payload.filename)
+        del msg['payload']['file_id']
 
         return TaskResult(conv.participants, msg)
 

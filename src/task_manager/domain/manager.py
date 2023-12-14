@@ -35,8 +35,6 @@ class TaskManager:
         self._running = True
         self.conv_repo = conv_repo
 
-        self.get_task = []
-
         di_cache[ConversationRepository] = self.conv_repo
         di_cache[MessageRepository] = messages_repo
         di_cache[Callable[[idType], Awaitable[ConversationEntity]]] = self._get_conversation
@@ -46,15 +44,12 @@ class TaskManager:
         count = 0
         while self._running:
             try:
-                start = time.time()
                 task = await self._task_queue.get()
                 await self._handle_message(task)
-                finish = time.time()
-                self.get_task.append(finish - start)
 
                 count += 1
                 if count > 500:
-                    await asyncio.sleep(0.01)
+                    await asyncio.sleep(0.001)
                     count = 0
             except asyncio.QueueEmpty:
                 await asyncio.sleep(0.1)
@@ -86,16 +81,15 @@ class TaskManager:
 
         return conversation
 
-    async def add_task(self, new_task: Task):
-        await self._task_queue.put(new_task)
-        await asyncio.sleep(0)
+    def add_task(self, new_task: Task):
+        self._task_queue.put_nowait(new_task)
 
     def new_connection(self, client_id: idType, callback: Callable):
         print(f'New connection: {client_id}')
 
         self._connected_users[client_id] = callback
 
-        # self._task_queue.put(LoadAllMsgs(client_id))
+        # self._task_queue.put_nowait(LoadAllMsgs(client_id))
 
     def close_connection(self, client_id: idType):
         print(f'Closing connection: {client_id}')

@@ -9,8 +9,6 @@ from api.routers.files import router as router_router
 from api.routers.auth import router as auth_router
 from api.routers.ws import router as ws_router
 
-from shared.utils import DummyFileStorage
-
 from task_manager.domain.manager import TaskManager
 
 from db import get_conversations, get_messages
@@ -20,8 +18,8 @@ from messages.repository import MessageRepository
 from fastapi.middleware.cors import CORSMiddleware
 
 tm = TaskManager(ConversationRepository(get_conversations()),
-                 MessageRepository(get_messages()),
-                 DummyFileStorage())
+                 MessageRepository(get_messages())
+                 )
 
 
 @asynccontextmanager
@@ -48,4 +46,4 @@ app.add_middleware(
 
 
 if __name__ == "__main__":
-    run(app, host="0.0.0.0", port=8000, ws='websockets', ws_ping_interval=100.0)
+    run('main:app', host="0.0.0.0", port=8000, ws='websockets', ws_ping_interval=100.0)

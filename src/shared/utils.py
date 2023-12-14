@@ -3,39 +3,74 @@ from abc import ABC, abstractmethod
 from io import BytesIO
 from typing import Generator
 
+from gridfs import NoFile
+
+from . import idType, BinaryFile
+from db import bucket
+
 
 class FileStorage(ABC):
 
     @abstractmethod
-    async def save(self, *args):
+    def save(self, *args):
+        ...
+
+    @abstractmethod
+    def load(self, *args):
+        ...
+
+
+class FileStorageStream(ABC):
+
+    @abstractmethod
+    def save_stream(self, *args):
         ...
 
     @abstractmethod
     def load_stream(self, *args):
         ...
 
+    @abstractmethod
+    def remove(self, *args):
+        ...
 
-class DummyFileStorage(FileStorage):
-    def __init__(self):
-        self._storage_path = '/Users/artem/Documents/storage/'
 
-    async def save(self, fd: BytesIO, sub_dir: str, name: str):
-        # imitation of transfer from ws server to a file service
-        sub_path = self._storage_path + sub_dir
-        if not os.path.exists(sub_path):
-            os.mkdir(sub_path)
+class GridFsWriter:
 
-        with open(f'{sub_path}/{name}', 'wb') as file:
-            while batch := fd.read(1024):
-                file.write(batch)
+    def __init__(self, _id, file_size: int, filename: str):
+        self._data_size = 0
+        self.file_size = file_size
+        self._fw = bucket.open_upload_stream_with_id(_id, filename)
 
-    def load_stream(self, sub_dir: str, name: str) -> Generator | None:
-        file_path = f'{self._storage_path}{sub_dir}/{name}'
+    def __enter__(self):
+        return self
 
-        if not os.path.exists(file_path):
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._fw.close()
+
+    def write(self, data: bytes) -> bool:
+        self._fw.write(data)
+
+        self._data_size += len(data)
+        return self._data_size >= self.file_size
+
+
+class GridFsStorage(FileStorageStream):
+
+    @classmethod
+    def save_stream(cls, b_file: BinaryFile) -> GridFsWriter:
+        b_file.file_id = idType()
+        return GridFsWriter(b_file.file_id, b_file.total_size, b_file.filename)
+
+    @staticmethod
+    def load_stream(_id: idType) -> Generator | None:
+        try:
+            with bucket.open_download_stream(_id) as grid_out:
+                while batch := grid_out.readchunk():
+                    yield batch
+        except NoFile:
             return None
 
-        with open(file_path, 'rb') as file:
-            batch_s = 1024
-            while batch := file.read(batch_s):
-                yield batch
+    @staticmethod
+    def remove(_id: idType):
+        bucket.delete(_id)
