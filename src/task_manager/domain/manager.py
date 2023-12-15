@@ -8,7 +8,6 @@ from conversations.repository import ConversationRepository
 from messages.repository import MessageRepository
 
 from shared import idType
-from shared.utils import FileStorage
 from .tasks import Task, LoadAllMsgs
 from .di import di_cache
 
@@ -30,8 +29,8 @@ class TaskManager:
 
     def __init__(self,
                  conv_repo: ConversationRepository = None,
-                 messages_repo: MessageRepository = None,
-                 file_storage = None):
+                 messages_repo: MessageRepository = None
+                 ):
         self._running = True
         self.conv_repo = conv_repo
 
@@ -41,18 +40,10 @@ class TaskManager:
         di_cache[FileStorage] = file_storage
 
     async def main_loop(self):
-        count = 0
         while self._running:
-            try:
-                task = await self._task_queue.get()
-                await self._handle_message(task)
-
-                count += 1
-                if count > 500:
-                    await asyncio.sleep(0.001)
-                    count = 0
-            except asyncio.QueueEmpty:
-                await asyncio.sleep(0.1)
+            # need to add try/except...
+            task = await self._task_queue.get()
+            await self._handle_message(task)
 
     async def _handle_message(self, task: Task):
         result = await task.handle()

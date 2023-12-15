@@ -24,9 +24,12 @@ tm = TaskManager(ConversationRepository(get_conversations()),
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asyncio.create_task(tm.main_loop())
+    tm_task = asyncio.create_task(tm.main_loop())
     yield
     tm.shutdown()
+    await asyncio.sleep(1)
+    if not tm_task.done():
+        tm_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)
