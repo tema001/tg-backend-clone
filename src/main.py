@@ -49,4 +49,5 @@ app.add_middleware(
 
 
 if __name__ == "__main__":
-    run('main:app', host="0.0.0.0", port=8000, ws='websockets', ws_ping_interval=100.0)
+    run('main:app', host="0.0.0.0", port=8000, ws='websockets',
+        proxy_headers=True, server_header=False)
